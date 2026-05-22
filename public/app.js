@@ -414,9 +414,28 @@
       });
   }
 
+  // #comment-status has role="status" — a polite live region — so updating it
+  // announces to a screen reader. Clearing first guarantees a repeated message
+  // still re-announces; the timer dismisses the confirmation after a few seconds
+  // so it never lingers from an earlier action.
+  let commentStatusSetTimer = null;
+  let commentStatusClearTimer = null;
   function setCommentStatus(text, state) {
-    commentStatus.textContent = text;
-    commentStatus.dataset.state = state;
+    clearTimeout(commentStatusSetTimer);
+    clearTimeout(commentStatusClearTimer);
+    commentStatus.textContent = '';
+    commentStatus.dataset.state = '';
+    if (!text) return;
+    commentStatusSetTimer = setTimeout(function () {
+      commentStatus.textContent = text;
+      commentStatus.dataset.state = state || '';
+      if (state === 'ok' || state === 'error') {
+        commentStatusClearTimer = setTimeout(function () {
+          commentStatus.textContent = '';
+          commentStatus.dataset.state = '';
+        }, 6000);
+      }
+    }, 80);
   }
 
   // Activate = reveal on the Figma canvas, preview it, and (for pages and
