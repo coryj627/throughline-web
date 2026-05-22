@@ -371,7 +371,11 @@
     if (reason === 'no-token') return 'No Figma token configured.';
     if (reason === 'no-file-key') return 'No Figma file key configured.';
     if (reason === 'empty-message') return 'Write a comment first.';
-    return 'Comment failed (' + reason + ').';
+    if (reason === 'cannot-annotate') {
+      return 'This item type cannot be annotated — pick a frame or layer.';
+    }
+    if (reason === 'annotate-failed') return 'Could not write the annotation — try again.';
+    return 'Feedback failed (' + reason + ').';
   }
 
   function submitComment(event) {
@@ -394,7 +398,12 @@
         commentBtn.disabled = false;
         if (res.ok) {
           commentText.value = '';
-          setCommentStatus('Comment posted to Figma.', 'ok');
+          setCommentStatus(
+            res.via === 'annotation'
+              ? 'Annotation added to the node — visible in Figma Dev Mode.'
+              : 'Comment posted to Figma.',
+            'ok'
+          );
         } else {
           setCommentStatus(commentStatusText(res.reason), 'error');
         }
@@ -405,9 +414,28 @@
       });
   }
 
+  // #comment-status has role="status" — a polite live region — so updating it
+  // announces to a screen reader. Clearing first guarantees a repeated message
+  // still re-announces; the timer dismisses the confirmation after a few seconds
+  // so it never lingers from an earlier action.
+  let commentStatusSetTimer = null;
+  let commentStatusClearTimer = null;
   function setCommentStatus(text, state) {
-    commentStatus.textContent = text;
-    commentStatus.dataset.state = state;
+    clearTimeout(commentStatusSetTimer);
+    clearTimeout(commentStatusClearTimer);
+    commentStatus.textContent = '';
+    commentStatus.dataset.state = '';
+    if (!text) return;
+    commentStatusSetTimer = setTimeout(function () {
+      commentStatus.textContent = text;
+      commentStatus.dataset.state = state || '';
+      if (state === 'ok' || state === 'error') {
+        commentStatusClearTimer = setTimeout(function () {
+          commentStatus.textContent = '';
+          commentStatus.dataset.state = '';
+        }, 6000);
+      }
+    }, 80);
   }
 
   // Activate = reveal on the Figma canvas, preview it, and (for pages and
