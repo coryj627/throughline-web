@@ -728,8 +728,8 @@
   }
 
   // --- Session artifact --------------------------------------------------
-  // Bundle the reviewed nodes — screenshots, descriptions, the tree — into a
-  // downloadable .zip, assembled entirely in the browser.
+  // Export the session as ONE self-contained, interactive HTML file: the
+  // navigable tree, the screenshots, and the AI descriptions, all embedded.
 
   function slug(text) {
     return (
@@ -747,24 +747,18 @@
       .catch(() => null);
   }
 
-  // Resolve an image URL (data URL or http) to raw base64 PNG data.
-  function imageToBase64(url) {
+  // Normalise an image URL to an embeddable data URL (data URLs pass through;
+  // http URLs are fetched and read as a data URL).
+  function toDataUrl(url) {
     if (!url) return Promise.resolve(null);
-    if (url.indexOf('data:') === 0) {
-      const comma = url.indexOf(',');
-      return Promise.resolve(comma >= 0 ? url.slice(comma + 1) : null);
-    }
+    if (url.indexOf('data:') === 0) return Promise.resolve(url);
     return fetch(url)
       .then((r) => (r.ok ? r.blob() : null))
       .then((blob) => {
         if (!blob) return null;
         return new Promise((resolve) => {
           const reader = new FileReader();
-          reader.onload = () => {
-            const result = String(reader.result);
-            const comma = result.indexOf(',');
-            resolve(comma >= 0 ? result.slice(comma + 1) : null);
-          };
+          reader.onload = () => resolve(String(reader.result));
           reader.onerror = () => resolve(null);
           reader.readAsDataURL(blob);
         });
@@ -772,112 +766,50 @@
       .catch(() => null);
   }
 
-  function treeOutlineMd(nodes, depth) {
-    let lines = [];
-    nodes.forEach((n) => {
-      lines.push('  '.repeat(depth) + '- ' + n.name + ' (' + n.role + ')');
-      if (n.children && n.children.length) {
-        lines = lines.concat(treeOutlineMd(n.children, depth + 1));
-      }
-    });
-    return lines;
-  }
-
   async function buildArtifact() {
-    if (!treeData || typeof JSZip === 'undefined') {
+    if (!treeData) {
       announce('Nothing to download yet.');
       return;
     }
     downloadBtn.disabled = true;
     downloadBtn.textContent = 'Building…';
     try {
-      const zip = new JSZip();
-      zip.file('tree.json', JSON.stringify(treeData, null, 2));
-
-      // Reviewed nodes — those with descriptions — in tree order.
-      const reviewed = [];
-      (function walk(nodes) {
-        nodes.forEach((n) => {
-          const list = descriptions.get(n.id);
-          if (list && list.length) reviewed.push(n);
-          if (n.children) walk(n.children);
-        });
-      })(treeData.pages || []);
-
-      const shots = zip.folder('screenshots');
-      const descData = {
-        title: treeData.title,
-        generatedAt: new Date().toISOString(),
-        reviewedCount: reviewed.length,
-        nodes: [],
-      };
-      const sections = [];
-
-      for (const node of reviewed) {
-        const list = descriptions.get(node.id) || [];
-        const safeId = node.id.replace(/[^\w.-]/g, '-');
-        const base64 = await imageToBase64(imageCache.get(node.id) || (await fetchImageUrl(node.id)));
-        let shotRef = null;
-        if (base64) {
-          shotRef = 'screenshots/' + safeId + '.png';
-          shots.file(safeId + '.png', base64, { base64: true });
-        }
-        descData.nodes.push({
-          id: node.id,
-          name: node.name,
-          role: node.role,
-          screenshot: shotRef,
-          descriptions: list.map((e) => ({ kind: e.kind, label: e.label, text: e.text })),
-        });
-        let section = '## ' + node.name + ' (' + node.role + ')\n';
-        if (shotRef) section += '\n![' + node.name.replace(/[[\]]/g, '') + '](' + shotRef + ')\n';
-        list.forEach((e) => {
-          section += '\n**' + e.label + '**\n\n' + e.text + '\n';
-        });
-        sections.push(section);
+      // For every reviewed node, embed its screenshot + descriptions.
+      const reviewed = {};
+      for (const id of descriptions.keys()) {
+        const list = descriptions.get(id) || [];
+        if (!list.length) continue;
+        const shot = await toDataUrl(imageCache.get(id) || (await fetchImageUrl(id)));
+        reviewed[id] = {
+          screenshot: shot,
+          descriptions: list.map((e) => ({ label: e.label, text: e.text })),
+        };
       }
 
-      zip.file('descriptions.json', JSON.stringify(descData, null, 2));
+      const data = {
+        generatedAt: new Date().toLocaleString(),
+        tree: treeData,
+        reviewed: reviewed,
+      };
+      const template = await fetch('session-template.html').then((r) => r.text());
+      // Escape `<` so the embedded JSON cannot break out of the <script> tag.
+      const json = JSON.stringify(data).replace(/</g, '\\u003c');
+      const html = template.replace('{{DATA}}', () => json);
 
-      const md = [
-        '# Throughline Web — accessibility review',
-        '',
-        '**Design:** ' + treeData.title,
-        '**Generated:** ' + new Date().toLocaleString(),
-        '**Reviewed:** ' + reviewed.length + ' of ' + treeData.nodeCount + ' nodes',
-        '',
-        '---',
-        '',
-        '# Reviewed nodes',
-        '',
-        reviewed.length ? sections.join('\n') : '_No nodes were described in this session._',
-        '',
-        '---',
-        '',
-        '# Design structure',
-        '',
-        treeOutlineMd(treeData.pages || [], 0).join('\n'),
-        '',
-      ].join('\n');
-      zip.file('report.md', md);
-
-      const blob = await zip.generateAsync({ type: 'blob' });
+      const blob = new Blob([html], { type: 'text/html' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'throughline-' + slug(treeData.title) + '.zip';
+      a.download = 'throughline-' + slug(treeData.title) + '-review.html';
       document.body.append(a);
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      const n = Object.keys(reviewed).length;
       announce(
-        'Session artifact downloaded — ' +
-          reviewed.length +
-          ' reviewed node' +
-          (reviewed.length === 1 ? '' : 's') +
-          '.'
+        'Session review downloaded — ' + n + ' reviewed node' + (n === 1 ? '' : 's') + '.'
       );
     } catch (e) {
-      announce('Could not build the session artifact.');
+      announce('Could not build the session review.');
     } finally {
       downloadBtn.disabled = false;
       downloadBtn.textContent = 'Download session';

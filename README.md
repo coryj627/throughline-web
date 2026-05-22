@@ -29,9 +29,9 @@ user, from an accessible space outside Figma's canvas UI.
   (colour, layout, imagery) for anything deeper.
 - **Comment write-back** — leave feedback on the selected node; it posts as a
   comment pinned to that layer in the Figma file.
-- **Downloadable session artifact** — the *Download session* button bundles the
-  reviewed nodes (screenshots, AI descriptions, the accessibility tree) into a
-  `.zip` with a readable `report.md`.
+- **Downloadable session artifact** — the *Download session* button exports the
+  whole review as one self-contained, interactive HTML file: the navigable tree,
+  screenshots, and AI descriptions, all embedded.
 
 ## Architecture
 
@@ -198,18 +198,20 @@ read-only token returns a clear "needs the Comments scope" message.
 
 ## Session artifact
 
-The **Download session** button (top-right) packages everything you've reviewed
-into a `.zip`, assembled entirely in the browser:
+The **Download session** button (top-right) exports the review as **one
+self-contained HTML file** — assembled in the browser, no server involved. Open
+it anywhere, offline: it's a frozen, interactive copy of the review.
 
-- `report.md` — a readable accessibility review: each reviewed node with its
-  screenshot and every description, plus the design's structure outline.
-- `screenshots/` — the rendered PNGs.
-- `tree.json` — the full accessibility tree.
-- `descriptions.json` — descriptions per node, structured for tooling.
+- The **page → layer tree**, fully navigable by keyboard, just like the app.
+- Each reviewed node is marked; selecting it shows its **screenshot and every AI
+  description**, all embedded inline — no external files.
+- The tree auto-expands along the paths to reviewed nodes so the content is easy
+  to find.
 
-It covers the nodes you actually described in the session. Screenshots come from
-the Bridge plugin's exports, so the artifact is most complete with the plugin
-connected.
+`public/session-template.html` is the viewer shell; the exporter fetches it and
+injects the session data. It covers the nodes you actually described —
+screenshots come from the Bridge plugin's exports, so the file is most complete
+with the plugin connected.
 
 ## Where the design data comes from
 
