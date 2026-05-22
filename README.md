@@ -1,7 +1,20 @@
 # Throughline Web
 
-Navigate a Figma design as an **accessible structure** from a web page — and
-drive the Figma canvas from there.
+**An accessible way into visual, spatial tools.** Design canvases, whiteboards,
+slide decks, spreadsheets, complex images — the surfaces teams think in are
+built around a 2D layout a screen reader can't meaningfully navigate.
+Throughline re-expresses that content as a real accessible structure on a web
+page, *outside* the original canvas: keyboard navigation, screen-reader roles
+and names, AI descriptions of what things look like, and two-way sync back to
+the source.
+
+**Figma is the first platform.** This repo navigates a Figma design as an
+accessible tree and drives the Figma canvas from it. The same pattern — read a
+visual surface, rebuild it as an accessible structure, sync changes back —
+extends to Airtable bases, Miro boards, PowerPoint decks, complex images, and
+more. Each is a surface that today quietly assumes you can see it. The
+architecture below is deliberately source-agnostic: one accessibility-tree model
+fed by pluggable platform adapters.
 
 This is a **separate product** from the Throughline Figma plugin in
 `../throughline/`. The plugin helps *designers* audit accessibility inside
