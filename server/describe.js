@@ -16,7 +16,9 @@ const clients = new Map();
 function getClient(apiKey) {
   const key = apiKey || process.env.ANTHROPIC_API_KEY;
   if (!key) return null;
-  if (!clients.has(key)) clients.set(key, new Anthropic({ apiKey: key }));
+  // maxRetries above the default of 2 — describe calls send a screenshot, so a
+  // flaky network drops them now and then; extra retries ride out the blips.
+  if (!clients.has(key)) clients.set(key, new Anthropic({ apiKey: key, maxRetries: 4 }));
   return clients.get(key);
 }
 
@@ -181,6 +183,7 @@ async function describeNode({ node, mode, topic, apiKey, imageBase64 }) {
     );
     if (err instanceof Anthropic.AuthenticationError) return { ok: false, reason: 'bad-api-key' };
     if (err instanceof Anthropic.RateLimitError) return { ok: false, reason: 'rate-limited' };
+    if (err instanceof Anthropic.APIConnectionError) return { ok: false, reason: 'connection' };
     return { ok: false, reason: 'api-error' };
   }
 }

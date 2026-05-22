@@ -311,10 +311,26 @@
     });
   }
 
+  // Restore one "tell me more" button to its idle label, or all of them.
+  function restoreTopicButton(topic) {
+    const b = topic && aiActionsEl.querySelector('[data-topic="' + topic + '"]');
+    if (b) {
+      b.disabled = false;
+      b.textContent = SECTION_LABELS[topic] || b.textContent;
+    }
+  }
+  function resetAllTopicButtons() {
+    aiActionsEl.querySelectorAll('button[data-topic]').forEach((b) => {
+      b.disabled = false;
+      b.textContent = SECTION_LABELS[b.dataset.topic] || b.textContent;
+    });
+  }
+
   // Called on every focus change — show this node's cached descriptions if it
   // has any, otherwise the describe affordance. Never calls the AI.
   function resetAiPanel(li) {
     aiKeyForm.hidden = true;
+    resetAllTopicButtons();
     const list = descriptions.get(li.dataset.nodeId);
     if (list && list.length) {
       renderDescriptions(li.dataset.nodeId);
@@ -330,6 +346,9 @@
 
   function describeErrorText(reason) {
     if (reason === 'rate-limited') return 'Rate limited — try again in a moment.';
+    if (reason === 'connection') {
+      return 'Could not reach Claude — check your connection and try again.';
+    }
     return 'Description unavailable (' + reason + ').';
   }
 
@@ -407,6 +426,12 @@
 
     describeBtn.hidden = true;
     aiKeyForm.hidden = true;
+    // Show progress on the pressed "tell me more" button.
+    const topicBtn = topic ? aiActionsEl.querySelector('[data-topic="' + topic + '"]') : null;
+    if (topicBtn) {
+      topicBtn.disabled = true;
+      topicBtn.textContent = 'Generating…';
+    }
     // Keep any existing descriptions on screen; add a pending line below them.
     renderDescriptions(nodeId);
     const pending = document.createElement('p');
@@ -421,6 +446,7 @@
       .then((r) => r.json())
       .then((res) => {
         describeInFlight.delete(flightKey);
+        restoreTopicButton(topic);
         const onNode = currentItem && currentItem.dataset.nodeId === nodeId;
         if (res.ok) {
           // Cache the result (accumulating), then re-render if still on the node.
@@ -450,6 +476,7 @@
       })
       .catch(() => {
         describeInFlight.delete(flightKey);
+        restoreTopicButton(topic);
         if (currentItem && currentItem.dataset.nodeId === nodeId) {
           appendAiError(nodeId, 'Could not reach the server.');
         }
