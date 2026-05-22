@@ -112,7 +112,9 @@ This makes the web app and the Figma canvas drive each other.
     moves to match.
 
 If the plugin cannot connect, confirm `npm start` is running and that the
-server address in the plugin's UI field matches your port.
+server address in the plugin's UI field matches your port. The plugin retries
+automatically every couple of seconds, so it re-links itself after a server
+restart — no need to press Connect again.
 
 ## Optional: visual previews
 

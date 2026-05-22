@@ -81,6 +81,7 @@
       var logEl = document.getElementById('log');
       var urlEl = document.getElementById('url');
       var ws = null;
+      var reconnectTimer = null;
 
       function setStatus(text, ok) {
         statusEl.textContent = text;
@@ -93,8 +94,24 @@
         parent.postMessage({ pluginMessage: message }, '*');
       }
 
+      // Retry the connection automatically — so a server restart doesn't
+      // need a manual reconnect (the web app already behaves this way).
+      function scheduleReconnect() {
+        if (reconnectTimer) return;
+        reconnectTimer = setTimeout(function () {
+          reconnectTimer = null;
+          connect();
+        }, 2000);
+      }
+
       function connect() {
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
         if (ws) {
+          // Detach handlers so this deliberate close doesn't trigger a retry.
+          ws.onopen = ws.onmessage = ws.onclose = ws.onerror = null;
           try {
             ws.close();
           } catch (e) {}
@@ -119,10 +136,12 @@
           }
         };
         ws.onclose = function () {
-          setStatus('Disconnected', false);
+          setStatus('Disconnected — reconnecting…', false);
+          scheduleReconnect();
         };
         ws.onerror = function () {
-          setStatus('Connection error — is the server running?', false);
+          setStatus('Connection error — retrying…', false);
+          // onclose fires next and schedules the retry.
         };
       }
 
