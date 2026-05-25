@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://throughline.dev/engine-spec/0.1.0/node.schema.json",
+  "title": "Throughline accessibility-tree node",
+  "description": "One node in the accessibility tree fed to the description engine. Required for OVERVIEW / SCREEN / ELEMENT modes; OPTIONAL for SCREENSHOT mode (the host MAY provide a synthetic stub to carry caller context, but it is not used by the SCREENSHOT prompt template).",
+  "type": "object",
+  "required": ["id", "name", "role"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "A stable identifier for this node. Used as the conversation LRU key. In the web reference impl this is the Figma node id; in the macOS impl it is the sha256 of the captured PNG bytes."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name. Quoted verbatim into the opening user message; control characters and double-quotes SHOULD be sanitized by the caller."
+    },
+    "role": {
+      "type": "string",
+      "description": "Semantic role. The web reference impl uses one of: page, heading, text, button, image, group, graphic. Implementations MAY extend the vocabulary as needed; the role string is interpolated into the prompt as-is."
+    },
+    "children": {
+      "type": "array",
+      "description": "Children of this node. Only the first two levels of children are rendered into the prompt outline; deeper levels are dropped.",
+      "items": { "$ref": "#" }
+    }
+  }
+}

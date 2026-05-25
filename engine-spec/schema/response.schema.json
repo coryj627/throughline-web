@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://throughline.dev/engine-spec/0.1.0/response.schema.json",
+  "title": "describeNode() response",
+  "description": "Output of the engine's primary entry point. Discriminated by `ok`.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["ok", "mode", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": { "const": true },
+        "mode": {
+          "type": "string",
+          "enum": ["overview", "screen", "element", "screenshot", "topic"]
+        },
+        "topic": {
+          "type": ["string", "null"],
+          "enum": ["color", "layout", "imagery", "text", null]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The model's response text, trimmed. Plain prose per the system-prompt rules — no markdown, no headings, no bullets."
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["ok", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": { "const": false },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "no-api-key",
+            "bad-api-key",
+            "rate-limited",
+            "connection",
+            "api-error",
+            "empty-response",
+            "unsupported-mode",
+            "no-image"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://throughline.dev/engine-spec/0.1.0/request.schema.json",
+  "title": "describeNode() request",
+  "description": "Arguments to the engine's primary entry point. The Anthropic API key is passed alongside, never embedded in this payload — secrets do not belong in the same blob as cacheable inputs.",
+  "type": "object",
+  "required": ["mode"],
+  "additionalProperties": false,
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["overview", "screen", "element", "screenshot", "topic"],
+      "description": "Selects the primary mode (or 'topic' for a deep-dive follow-up). See modes.md."
+    },
+    "topic": {
+      "type": ["string", "null"],
+      "enum": ["color", "layout", "imagery", "text", null],
+      "description": "REQUIRED when mode === 'topic'. MUST be omitted (or null) otherwise. See topics.md."
+    },
+    "node": {
+      "description": "REQUIRED for overview / screen / element. OPTIONAL for screenshot. OPTIONAL for topic (the LRU lookup uses node.id when supplied; for screenshot+topic flows the host typically passes a stub node with id = sha256 of the PNG).",
+      "oneOf": [
+        { "$ref": "node.schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "imagePNGBase64": {
+      "type": ["string", "null"],
+      "description": "Base64-encoded PNG bytes (no data: prefix). REQUIRED for screenshot mode. OPTIONAL for the other primary modes (the prompt falls back to a no-image sentinel). Ignored for topic mode (the image is already in the conversation history). MUST be ≤ 5,000,000 characters; over-cap images MUST be downsampled or dropped by the caller before reaching the engine.",
+      "maxLength": 5000000
+    },
+    "context": {
+      "type": ["string", "null"],
+      "description": "OPTIONAL single-line caller context inserted into the SCREENSHOT template (e.g. 'Captured from Slack, channel #design-review'). Ignored by other modes."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "mode": { "const": "topic" } }, "required": ["mode"] },
+      "then": { "required": ["topic"] }
+    },
+    {
+      "if": { "properties": { "mode": { "const": "screenshot" } }, "required": ["mode"] },
+      "then": {
+        "required": ["imagePNGBase64"],
+        "properties": { "imagePNGBase64": { "type": "string" } }
+      }
+    }
+  ]
+}
